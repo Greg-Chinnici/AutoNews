@@ -6,7 +6,6 @@ from datetime import datetime
 import sqlite3
 import feedparser
 from colorama import Fore, Style
-#from sklearn.feature_extraction.text import CountVectorizer
 import spacy
 import spacy.cli
 
