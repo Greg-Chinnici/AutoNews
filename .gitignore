@@ -204,3 +204,6 @@ project.fragment.lock.json
 .idea/
 *.sln.iml
 Assets/Plugins/Editor/JetBrains*
+
+database
+scraped_articles

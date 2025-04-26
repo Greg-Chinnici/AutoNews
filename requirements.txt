@@ -2,3 +2,12 @@ feedparser
 colorama
 scikit-learn
 spacy
+
+beautifulsoup4
+requests
+
+#ollama
+langchain 
+langchain-ollama
+langchain-community 
+pydantic

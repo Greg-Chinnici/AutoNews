@@ -11,6 +11,7 @@ https://store.steampowered.com/feeds/news.xml
 https://blog.jetbrains.com/feed
 https://github.blog/feed/
 
+https://www.cbsnews.com/latest/rss/main
 https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml
 #https://rss.nytimes.com/services/xml/rss/nyt/World.xml
 #https://rss.nytimes.com/services/xml/rss/nyt/US.xml
