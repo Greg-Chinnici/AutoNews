@@ -1,0 +1,4 @@
+feedparser
+colorama
+scikit-learn
+spacy
