@@ -1,0 +1,12 @@
+https://feeds.nbcnews.com/nbcnews/public/news
+http://rss.cnn.com/rss/edition_world.rss
+https://www.cnbc.com/id/100727362/device/rss/rss.html
+https://feeds.feedburner.com/time/world
+https://feeds.feedburner.com/ign/games-all
+https://www.gameinformer.com/news.xml
+https://www.rockpapershotgun.com/feed/news
+https://dotesports.com/call-of-duty/feed
+https://www.vlr.gg/rss
+https://store.steampowered.com/feeds/news.xml
+https://blog.jetbrains.com/feed
+https://github.blog/feed/

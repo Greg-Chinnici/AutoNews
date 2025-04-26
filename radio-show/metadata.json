@@ -1,0 +1,53 @@
+{
+    "mainTitle": "Tapping the Sun: Big Box Stores as Solar Farms?",
+    "characters": [
+        "Emily",
+        "David"
+    ],
+    "dialogue": [
+        {
+            "character": "Emily",
+            "line": "Good evening and welcome back to the news desk."
+        },
+        {
+            "character": "David",
+            "line": "Thanks for joining us. Tonight, we're looking at a potentially massive untapped resource for clean energy: the rooftops of America's big box stores and warehouses."
+        },
+        {
+            "character": "Emily",
+            "line": "That's right, David. When you think of renewable energy, you might picture sprawling solar farms or residential rooftop panels. But reports highlight the enormous potential right in the heart of our communities, atop stores like Walmart, Target, and others."
+        },
+        {
+            "character": "David",
+            "line": "The numbers are quite striking, Emily. We're talking billions of square feet of flat, open, sun-exposed space. Studies suggest that covering these roofs with solar panels could generate enough electricity to power millions of homes annually and significantly cut carbon emissions."
+        },
+        {
+            "character": "Emily",
+            "line": "Beyond the environmental benefits, there are clear advantages for the businesses themselves, such as reduced electricity bills and increased energy independence. It also helps reduce energy lost during transmission because the power is generated so close to where it's used."
+        },
+        {
+            "character": "David",
+            "line": "And some major retailers are already leading the way. Companies like Walmart, Amazon, IKEA, and Target have invested in rooftop solar on many of their locations, demonstrating that it's feasible on a large scale."
+        },
+        {
+            "character": "Emily",
+            "line": "However, it's not without its challenges. The upfront cost of installation can be significant, and there can be complexities with grid connection and navigating local regulations."
+        },
+        {
+            "character": "David",
+            "line": "Policy and incentives play a crucial role here. Experts say extending tax credits, streamlining permitting processes, and implementing supportive policies like net metering are key to unlocking this potential on a wider scale."
+        },
+        {
+            "character": "Emily",
+            "line": "Harnessing the solar power from these massive rooftops could be a significant step towards meeting our clean energy goals, turning everyday shopping centers into vital power generators."
+        },
+        {
+            "character": "David",
+            "line": "Indeed. It's a compelling idea with substantial potential. We'll continue to follow the progress on this front."
+        },
+        {
+            "character": "Emily",
+            "line": "Absolutely. Coming up next..."
+        }
+    ]
+}
