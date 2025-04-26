@@ -206,3 +206,4 @@ project.fragment.lock.json
 Assets/Plugins/Editor/JetBrains*
 
 database
+scraped_articles

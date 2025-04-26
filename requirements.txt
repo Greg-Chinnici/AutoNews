@@ -2,3 +2,6 @@ feedparser
 colorama
 scikit-learn
 spacy
+
+beautifulsoup4
+requests
