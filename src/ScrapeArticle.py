@@ -5,63 +5,60 @@ import requests
 from bs4 import BeautifulSoup
 import spacy
 
+from PickTopic import pick_topic 
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+import json
 
 # Load spaCy's English model
 nlp = spacy.load("en_core_web_sm")
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 DATABASE_PATH = "database/autonews.db"
 OUTPUT_DIR = "scraped_articles"
 LIMIT = 5
 
 
-def fetch_top_article_by_topics(source_filter, topics, min_matches):
-    """Fetches the top article for a specific source based on the most topic matches using NLP."""
+def fetch_top_article_by_embeddings(source_filter, selected_topic, threshold=0.5):
     try:
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT title, link, topics FROM articles
+            SELECT title, link, embedding FROM articles
             WHERE link LIKE ?
         """, (f"%{source_filter}%",))
         results = cursor.fetchall()
         conn.close()
 
-        # Preprocess input topics: lowercase and lemmatize
-        input_topics = set()
-        for topic in topics:
-            doc = nlp(topic)
-            for token in doc:
-                input_topics.add(token.lemma_.lower())
+        if not results:
+            print(f"No articles found for source '{source_filter}'.")
+            return None
 
-        top_article = None
-        max_matches = 0
+        topic_embedding = model.encode(selected_topic).reshape(1, -1)
 
-        for title, link, article_topics in results:
-            if not article_topics:
+        best_article = None
+        best_similarity = -1
+
+        for title, link, embedding_json in results:
+            if not embedding_json:
                 continue
 
-            split_topics = [t.strip() for t in article_topics.split(",")]
+            article_embedding = np.array(json.loads(embedding_json)).reshape(1, -1)
+            similarity = cosine_similarity(topic_embedding, article_embedding)[0][0]
 
-            article_tokens = set()
-            for topic_phrase in split_topics:
-                doc = nlp(topic_phrase)
-                for token in doc:
-                    article_tokens.add(token.lemma_.lower())
+            if similarity > best_similarity:
+                best_similarity = similarity
+                best_article = {"title": title, "link": link}
 
-            matches = len(input_topics.intersection(article_tokens))
-
-            if matches >= min_matches:
-                if matches > max_matches:
-                    max_matches = matches
-                    top_article = {"title": title, "link": link}
-
-        if top_article:
-            print(f"Selected article for source '{source_filter}': {top_article['title']} with {max_matches} matches.")
+        if best_article and best_similarity >= threshold:
+            print(f"Selected article for source '{source_filter}': {best_article['title']} with similarity {best_similarity:.4f}.")
+            return best_article
         else:
-            print(f"No relevant articles found for source '{source_filter}'.")
-
-        return top_article
+            print(f"No relevant articles found for source '{source_filter}' with similarity above threshold {threshold}.")
+            return None
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         return None
@@ -88,7 +85,7 @@ def scrape_article(title, link, skip_words):
         return None
     
 
-def process_articles_for_sources(sources, topics, output_dir, min_matches):
+def process_articles_for_sources(sources, topics, output_dir, threshold=0.5):
     """Processes one article per source based on topic matches and aggregates them into a single file."""
     # Generate the output file name based on topics
     file_name = "_".join(topics) + ".txt"
@@ -99,7 +96,7 @@ def process_articles_for_sources(sources, topics, output_dir, min_matches):
     for source, skip_words in sources.items():
         print(f"Processing articles for source: {source}")
 
-        article = fetch_top_article_by_topics(source_filter=source, topics=topics, min_matches=min_matches)
+        article = fetch_top_article_by_embeddings(source_filter=source, selected_topic=topics[0], threshold=threshold)
         if not article:
             print(f"No articles found for source: {source}")
             continue
@@ -123,17 +120,26 @@ if __name__ == "__main__":
         "nbcnews": ["Video", "Watch"],
         "cnbc": ["Video", "Watch"],
         "abcnews": ["Video", "Watch"],
-        "cbsnews": ["Watch CBS", "Daily Report"],
-        "politico": ["Video", "Watch"],
+        "cbsnews": ["Watch CBS", "Daily Report", "24/7", "CBS", "Here Comes the Sun"],
+        "politico": ["Video", "Watch", "cartoonists on the week in politics"],
         "bbc": ["Video", "Watch"]
     }
 
     # hardcoded topics for testing
-    topics = ["Trump", "Zelensky", "Ukraine", "Russia", "NATO"]
+    #topics = ["Trump", "Zelensky", "Ukraine", "Russia", "NATO"]
     #topics = ["Giuffre", "Epstein", "Maxwell"]
+    # topics = ["explosion", "Iran", "port", "ship", "seaport"]
+
+    choice = 5
+    selected_topic = pick_topic(choice)
+    topics = [selected_topic]
+
+    cosine_similarity_threshold = 0.5
+
+    print(f"Selected Topic: {selected_topic}")
 
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    process_articles_for_sources(sources, topics, OUTPUT_DIR, min_matches=2)
+    process_articles_for_sources(sources, topics, OUTPUT_DIR, threshold=cosine_similarity_threshold)

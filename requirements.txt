@@ -1,12 +1,21 @@
+# rss article ingestion
 feedparser
 colorama
 scikit-learn
 spacy
+sentence_transformers
 
+# Google Forms API libraries
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+
+# article web scraping
 beautifulsoup4
 requests
 
-#ollama
+# script creation 
 langchain 
 langchain-ollama
 langchain-community 
