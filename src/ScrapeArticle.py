@@ -5,11 +5,14 @@ import requests
 from bs4 import BeautifulSoup
 import spacy
 
-from PickTopic import pick_topic 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import json
+
+from PickTopic import pick_topic 
+from GoogleFormsUpdater import createClusters
+
 
 # Load spaCy's English model
 nlp = spacy.load("en_core_web_sm")
@@ -18,7 +21,6 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 
 DATABASE_PATH = "database/autonews.db"
 OUTPUT_DIR = "scraped_articles"
-LIMIT = 5
 
 
 def fetch_top_article_by_embeddings(source_filter, selected_topic, threshold=0.5):
@@ -117,29 +119,25 @@ if __name__ == "__main__":
 
     # Define sources and their respective skip words
     sources = {
+        "apnews": ["Video", "Watch"],
+        #"news.google": ["Video", "Watch"],
+        "guardian": ["Video", "Watch"],
         "nbcnews": ["Video", "Watch"],
         "cnbc": ["Video", "Watch"],
         "abcnews": ["Video", "Watch"],
         "cbsnews": ["Watch CBS", "Daily Report", "24/7", "CBS", "Here Comes the Sun"],
-        "politico": ["Video", "Watch", "cartoonists on the week in politics"],
-        "bbc": ["Video", "Watch"]
+        "bbc": ["Video", "Watch"],
+
     }
 
-    # hardcoded topics for testing
-    #topics = ["Trump", "Zelensky", "Ukraine", "Russia", "NATO"]
-    #topics = ["Giuffre", "Epstein", "Maxwell"]
-    # topics = ["explosion", "Iran", "port", "ship", "seaport"]
-
-    choice = 5
-    selected_topic = pick_topic(choice)
-    topics = [selected_topic]
+    topics = createClusters()
 
     cosine_similarity_threshold = 0.5
-
-    print(f"Selected Topic: {selected_topic}")
 
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    process_articles_for_sources(sources, topics, OUTPUT_DIR, threshold=cosine_similarity_threshold)
+    for selected_topic in topics:
+        print(f"Selected Topic: {selected_topic}")
+        process_articles_for_sources(sources, [selected_topic], OUTPUT_DIR, threshold=cosine_similarity_threshold)

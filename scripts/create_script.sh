@@ -21,3 +21,7 @@ python3 src/ArticleIngest.py
 python3 src/ScrapeArticle.py
 
 python3 src/ScriptCreator.py
+
+python3 src/AudioCreator.py
+
+python3 src/AudioCreator.py

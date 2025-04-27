@@ -1,8 +1,12 @@
-
+https://feedx.net/rss/ap.xml
+https://www.theguardian.com/us/rss
+https://www.theguardian.com/us-news/us-politics
+https://www.theguardian.com/world
 https://feeds.nbcnews.com/nbcnews/public/news
 https://www.cnbc.com/id/100727362/device/rss/rss.html
 https://abcnews.go.com/abcnews/usheadlines
 https://abcnews.go.com/abcnews/topstories
 https://www.cbsnews.com/latest/rss/main
-https://rss.politico.com/politics-news.xml
+https://www.cbsnews.com/latest/rss
+#https://rss.politico.com/politics-news.xml
 https://feeds.bbci.co.uk/news/rss.xml

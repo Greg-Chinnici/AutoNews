@@ -3,8 +3,10 @@ import sys
 
 from google.cloud import texttospeech
 import os
+import glob
+import time
 
-OUTPUT_FOLDER = "radio-show"
+OUTPUT_FOLDER = "entire-broadcast"
 
 
 GOOGLE_CHIRP_HD_VOICES = {
@@ -27,53 +29,6 @@ GOOGLE_CHIRP_HD_VOICES = {
 }
 """
 
-script = {
-    "mainTitle": "Tapping the Sun: Big Box Stores as Solar Farms?",
-    "characters": ["Emily", "David"],
-    "dialogue": [
-        {
-            "character": "Emily",
-            "line": "Good evening and welcome back to the news desk.",
-        },
-        {
-            "character": "David",
-            "line": "Thanks for joining us. Tonight, we're looking at a potentially massive untapped resource for clean energy: the rooftops of America's big box stores and warehouses.",
-        },
-        {
-            "character": "Emily",
-            "line": "That's right, David. When you think of renewable energy, you might picture sprawling solar farms or residential rooftop panels. But reports highlight the enormous potential right in the heart of our communities, atop stores like Walmart, Target, and others.",
-        },
-        {
-            "character": "David",
-            "line": "The numbers are quite striking, Emily. We're talking billions of square feet of flat, open, sun-exposed space. Studies suggest that covering these roofs with solar panels could generate enough electricity to power millions of homes annually and significantly cut carbon emissions.",
-        },
-        {
-            "character": "Emily",
-            "line": "Beyond the environmental benefits, there are clear advantages for the businesses themselves, such as reduced electricity bills and increased energy independence. It also helps reduce energy lost during transmission because the power is generated so close to where it's used.",
-        },
-        {
-            "character": "David",
-            "line": "And some major retailers are already leading the way. Companies like Walmart, Amazon, IKEA, and Target have invested in rooftop solar on many of their locations, demonstrating that it's feasible on a large scale.",
-        },
-        {
-            "character": "Emily",
-            "line": "However, it's not without its challenges. The upfront cost of installation can be significant, and there can be complexities with grid connection and navigating local regulations.",
-        },
-        {
-            "character": "David",
-            "line": "Policy and incentives play a crucial role here. Experts say extending tax credits, streamlining permitting processes, and implementing supportive policies like net metering are key to unlocking this potential on a wider scale.",
-        },
-        {
-            "character": "Emily",
-            "line": "Harnessing the solar power from these massive rooftops could be a significant step towards meeting our clean energy goals, turning everyday shopping centers into vital power generators.",
-        },
-        {
-            "character": "David",
-            "line": "Indeed. It's a compelling idea with substantial potential. We'll continue to follow the progress on this front.",
-        },
-        {"character": "Emily", "line": "Absolutely. Coming up next..."},
-    ],
-}
 
 
 def synthesise_speech(text, filename, speaker):
@@ -98,7 +53,9 @@ def synthesise_speech(text, filename, speaker):
         response = client.synthesize_speech(
             input=input_text, voice=voice, audio_config=audio_config
         )
-
+        # if hte does not exist, create it
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        # Write the response to the output file
         with open(filename, "wb") as out:
             out.write(response.audio_content)
         
@@ -107,29 +64,57 @@ def synthesise_speech(text, filename, speaker):
         sys.exit(1)
 
 
-speaking_order = []
-final_lines = []
 
-for idx, line in enumerate(script["dialogue"], start=1):
-    character = line["character"]
-    dialogue = line["line"]
-    speaker = ""
-    if character == "Emily":
-        speaker = "lao_w"
-    elif character == "David":
-        speaker = "claude_m"
-    else:
-        speaker = "charon_m"
+generated_scripts_folder = "generated_scripts"
+script_files = glob.glob(os.path.join(generated_scripts_folder, "*.json"))
 
-    synthesise_speech(dialogue, f"{OUTPUT_FOLDER}/audio/{idx}_{character}.mp3", speaker)
+print(f"Found {len(script_files)} script files in {generated_scripts_folder}")
 
-    speaking_order.append(character)
-    filename = f"{idx}_{character}_{speaking_order.count(character)}.mp3"
-    print(f"{OUTPUT_FOLDER}/{filename}->", end="")
-    print(f"{character}: {dialogue}")
+scripts = []
+#! TODO: add the char list in header of json scripts
 
-metadata_path = f"{OUTPUT_FOLDER}/metadata.json"
-os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
-with open(metadata_path, "w") as out:
-    json.dump(script, out, indent=4)
+for script_path in script_files:
+    with open(script_path, "r") as file:
+        try:
+            script = json.load(file)
+            scripts.append(script)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {script_path}: {e}")
 
+
+                    
+for script in scripts:
+    print (f"Processing script: {script['mainTitle']}")
+    # yn = input(f"Do you want to generate audio for {script['mainTitle']}? (y/n): ")
+    # if yn.lower() != "y":
+    #     print("Skipping...")
+    #     continue
+    
+    speaking_order = []
+    final_lines = []
+
+    for idx, line in enumerate(script["dialogue"], start=1):
+        character = line["character"]
+        dialogue = line["line"]
+        speaker = ""
+        if character == "Emily":
+            speaker = "lao_w"
+        elif character == "David":
+            speaker = "claude_m"
+        else:
+            speaker = "charon_m"
+
+        segment_title = script["mainTitle"].replace(" ", "-")
+        synthesise_speech(dialogue, f"{OUTPUT_FOLDER}/{segment_title}/audio/{idx}_{character}.mp3", speaker)
+
+        speaking_order.append(character)
+        filename = f"{idx}_{character}.mp3"
+        print(f"{OUTPUT_FOLDER}/{filename}->", end="")
+        print(f"{character}: {dialogue}")
+        
+        time.sleep(0.5)  # Sleep for 0.5 seconds between each line so i dont get rate limted
+
+    metadata_path = f"{OUTPUT_FOLDER}/{segment_title}/metadata.json"
+    os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
+    with open(metadata_path, "w") as out:
+        json.dump(script, out, indent=4)
