@@ -1,5 +1,7 @@
 deepseek:
-  model_name: deepseek-r1:7b
+  model_name: deepseek-r1:14b
   temperature: 0.7
   top_p: 0.9
   max_tokens: 2048
+
+num_lines: 15

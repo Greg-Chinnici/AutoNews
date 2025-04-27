@@ -1,8 +1,10 @@
 import os
+import shutil
 import sys
 import json
 import time
 import requests
+import unicodedata
 import argparse
 import yaml
 from typing import List
@@ -28,12 +30,14 @@ class DialogueLine(BaseModel):
 
 class NewsScript(BaseModel):
     mainTitle: str = Field(description="Summarized title of the article")
+    characters: List[str] = Field(description="List of characters in the script, should ony be Emily and David")
     dialogue: List[DialogueLine] = Field(description="List of dialogue lines")
 
 class ScriptCreator:
     def __init__(self, config_filename="config.yaml", verbose=False):
         self.verbose = verbose
         self.config = self._load_config(config_filename)
+        num_lines=self.config.get("num_lines", 17),
         self.model = ChatOllama(
             model=self.config["deepseek"]["model_name"],
             temperature=self.config["deepseek"].get("temperature", 0.7),
@@ -44,8 +48,38 @@ class ScriptCreator:
         self.parser = JsonOutputParser(pydantic_object=NewsScript)
         self.fixing_parser = OutputFixingParser.from_llm(parser=self.parser, llm=self.model)
         self.prompt = PromptTemplate(
-            template="""
+            template = """
                 You are a news show scriptwriter. Given the following news article, generate a JSON structured news segment with a casual, professional tone.
+
+                {format_instructions}
+
+                IMPORTANT:
+
+                - You must output valid JSON matching exactly the format below.
+                - Do not invent or add any extra fields.
+                - Do not change the field names.
+
+                {{
+                    "mainTitle": "TITLE OF ARTICLE",
+                    "characters": [
+                        "Emily",
+                        "David"
+                    ],
+                    "dialogue": [
+                        {{
+                            "character": "Emily",
+                            "line": "CONVERSATION LINE 1"
+                        }},
+                        {{
+                            "character": "David",
+                            "line": "CONVERSATION LINE 2"
+                        }}
+                    ]
+                }}
+
+                Each character should alternate naturally. Focus on summarizing the key points conversationally without making things up.
+
+                Ensure that each character has at least {num_lines} lines of dialogue.
 
                 The segment should feature two newscasters:
                 - Emily: a seasoned anchor with a calm and authoritative presence.
@@ -54,20 +88,14 @@ class ScriptCreator:
                 The dialogue should alternate between Emily and David, capturing their distinct personas.
 
                 Focus on the actual content of the article, ensuring that the dialogue is engaging and informative. 
-                
+
                 The script should be structured as a conversation between the two characters, summarizing the key points of the article.
-
-                Ensure that each character has at least 10 lines of dialogue.
-
-                {format_instructions}
-
-                Each character should alternate naturally. Focus on summarizing the key points conversationally without making things up.
 
                 ARTICLE:
                 {article}
-            """,
+                """,
             input_variables=["article"],
-            partial_variables={"format_instructions": self.parser.get_format_instructions()},
+            partial_variables={"format_instructions": self.parser.get_format_instructions(), "num_lines": num_lines},
         )
 
     def _load_config(self, config_filename):
@@ -97,6 +125,9 @@ class ScriptCreator:
         except Exception as e:
             print(f"Failed to start Ollama: {e}")
 
+    def normalize_text(self, text):
+        return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+
     def load_article(self, file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
@@ -118,16 +149,32 @@ class ScriptCreator:
             print(chunk.content, end="", flush=True)
             script_output += chunk.content
 
-        # for chunk in response_stream:
-        #     words = chunk.content.split()
-        #     for word in words:
-        #         print(word + ' ', end='', flush=True)
-        #         time.sleep(0.3)
-
-        # After streaming, parse the complete output
         try:
             parsed_output = self.fixing_parser.parse(script_output)
+
+            if parsed_output is None:
+                print("Parsing returned None. Skipping this article.")
+                return None
+            
+            # Validate output structure
+            required_keys = {"mainTitle", "characters", "dialogue"}
+            if not required_keys.issubset(parsed_output.keys()):
+                print(f"Invalid output structure: missing keys {required_keys - parsed_output.keys()}")
+                return None
+            
+            # Normalize important fields
+            if "mainTitle" in parsed_output:
+                parsed_output["mainTitle"] = unicodedata.normalize("NFKD", parsed_output["mainTitle"]).encode("ascii", "ignore").decode("ascii")
+
+            if "dialogue" in parsed_output:
+                for entry in parsed_output["dialogue"]:
+                    if "character" in entry:
+                        entry["character"] = unicodedata.normalize("NFKD", entry["character"]).encode("ascii", "ignore").decode("ascii")
+                    if "line" in entry:
+                        entry["line"] = unicodedata.normalize("NFKD", entry["line"]).encode("ascii", "ignore").decode("ascii")
+
             return parsed_output
+
         except OutputParserException as e:
             print(f"Parsing failed: {e}")
             return None
@@ -178,7 +225,12 @@ def parse_arguments():
     parser.add_argument("--verbose", type=bool, default=False, help="Verbose output (True/False)")
     return parser.parse_args()
 
+OUTPUT_DIR = os.path.join("generated_scripts")
+
 if __name__ == "__main__":
     args = parse_arguments()
+    if os.path.exists(OUTPUT_DIR):
+        shutil.rmtree(OUTPUT_DIR)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     creator = ScriptCreator(config_filename="script_creator.yaml", verbose=args.verbose)
     creator.process_articles()

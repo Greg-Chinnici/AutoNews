@@ -14,7 +14,7 @@ spacy.cli.download("en_core_web_sm")
 # Load the spaCy English model
 nlp = spacy.load("en_core_web_sm")
 
-LIMIT_PER_FEED = 20
+LIMIT_PER_FEED = 30
 source = ""
 
 '''
@@ -57,7 +57,7 @@ def delete_db():
 
 
 # Extracts main topics, grouping proper nouns into named entities using spaCy, and formats them.
-def extract_topics(title, max_topics=5):
+def extract_topics(title, max_topics=10):
     try:
         doc = nlp(title)
         topics = []
@@ -116,7 +116,7 @@ def main():
     delete_db()
     create_db()
 
-    with open('assets/rssfeeds.txt', 'r') as file:
+    with open('config/rssfeeds.txt', 'r') as file:
         print(Fore.YELLOW + f"Starting to parse RSS feeds at {time.strftime('%Y-%m-%d %H:%M:%S' , time.localtime())}")
         feeds = file.readlines()
         for feed_link in feeds:

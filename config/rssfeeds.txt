@@ -1,0 +1,8 @@
+
+https://feeds.nbcnews.com/nbcnews/public/news
+https://www.cnbc.com/id/100727362/device/rss/rss.html
+https://abcnews.go.com/abcnews/usheadlines
+https://abcnews.go.com/abcnews/topstories
+https://www.cbsnews.com/latest/rss/main
+https://rss.politico.com/politics-news.xml
+https://feeds.bbci.co.uk/news/rss.xml
