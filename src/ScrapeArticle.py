@@ -3,106 +3,143 @@ import shutil
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
+import spacy
 
+from PickTopic import pick_topic 
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+import json
+
+# Load spaCy's English model
+nlp = spacy.load("en_core_web_sm")
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 DATABASE_PATH = "database/autonews.db"
 OUTPUT_DIR = "scraped_articles"
 LIMIT = 5
 
 
-def fetch_cbs_news_links(limit=LIMIT, offset=0):
-    """Fetches CBS News links from the database with a limit and offset."""
+def fetch_top_article_by_embeddings(source_filter, selected_topic, threshold=0.5):
     try:
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
 
-        # Query to fetch CBS News links with limit and offset
         cursor.execute("""
-            SELECT title, link FROM articles
-            WHERE link LIKE '%cbsnews.com%'
-            LIMIT ? OFFSET ?
-        """, (limit, offset))
+            SELECT title, link, embedding FROM articles
+            WHERE link LIKE ?
+        """, (f"%{source_filter}%",))
         results = cursor.fetchall()
         conn.close()
 
-        return [{"title": row[0], "link": row[1]} for row in results]
+        if not results:
+            print(f"No articles found for source '{source_filter}'.")
+            return None
+
+        topic_embedding = model.encode(selected_topic).reshape(1, -1)
+
+        best_article = None
+        best_similarity = -1
+
+        for title, link, embedding_json in results:
+            if not embedding_json:
+                continue
+
+            article_embedding = np.array(json.loads(embedding_json)).reshape(1, -1)
+            similarity = cosine_similarity(topic_embedding, article_embedding)[0][0]
+
+            if similarity > best_similarity:
+                best_similarity = similarity
+                best_article = {"title": title, "link": link}
+
+        if best_article and best_similarity >= threshold:
+            print(f"Selected article for source '{source_filter}': {best_article['title']} with similarity {best_similarity:.4f}.")
+            return best_article
+        else:
+            print(f"No relevant articles found for source '{source_filter}' with similarity above threshold {threshold}.")
+            return None
     except sqlite3.Error as e:
         print(f"Database error: {e}")
-        return []
+        return None
 
 
-def scrape_article(title, link):
-
-    skip_words = ["CBS News", "CBS", "CBSNews", "Watch CBS", "Daily Report", "America Decides"]
-
+def scrape_article(title, link, skip_words):
+    """Scrapes the article content from the given link, skipping unwanted titles."""
     try:
-        # Skip articles with "CBS" in the title
         if any(word in title for word in skip_words):
-            print(f"Skipping article due to title containing '{skip_words} News': {title}\n")
+            print(f"Skipping article due to title containing skip words: {title}\n")
             return None
 
         response = requests.get(link)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Attempt to extract the main content of the article
         paragraphs = soup.find_all("p")
         content = "\n".join([p.get_text() for p in paragraphs if p.get_text()])
 
-        print(f"Link: {link}\n")
-        print(f"Content: {content}\n")
-
+        print(f"Scraped content from: {link}\n")
         return content, link
     except Exception as e:
         print(f"Error scraping {link}: {e}")
         return None
+    
 
+def process_articles_for_sources(sources, topics, output_dir, threshold=0.5):
+    """Processes one article per source based on topic matches and aggregates them into a single file."""
+    # Generate the output file name based on topics
+    file_name = "_".join(topics) + ".txt"
+    output_file = os.path.join(output_dir, file_name)
 
-def save_article(title, content, link):
-    """Saves the article content to a .txt file."""
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+    aggregated_content = []
 
-    # Create a valid filename from the title
-    filename = f"{title[:50].replace(' ', '_').replace('/', '_')}.txt"
-    filepath = os.path.join(OUTPUT_DIR, filename)
+    for source, skip_words in sources.items():
+        print(f"Processing articles for source: {source}")
 
-    with open(filepath, "w", encoding="utf-8") as file:
-        file.write(f"Title: {title}\n")
-        file.write(f"Link: {link}\n")
-        file.write(content)
+        article = fetch_top_article_by_embeddings(source_filter=source, selected_topic=topics[0], threshold=threshold)
+        if not article:
+            print(f"No articles found for source: {source}")
+            continue
 
-    print(f"Article saved to {filepath}")
+        print(f"Scraping: {article['title']}")
+        result = scrape_article(article["title"], article["link"], skip_words)
+        if result:  # Only proceed if scrape_article returns valid content
+            content, link = result
+            aggregated_content.append(f"Source: {source}\nTitle: {article['title']}\nLink: {link}\n\n{content}\n{'-'*80}")
 
+    with open(output_file, 'w', encoding='utf-8') as file:
+        file.write('\n\n'.join(aggregated_content))
 
-def process_articles():
-    valid_articles = []
-    offset = 0  # Offset for fetching additional articles if needed
-
-    while len(valid_articles) < LIMIT:
-        # Fetch articles with an offset to avoid duplicates
-        articles = fetch_cbs_news_links(limit=LIMIT + offset)[offset:]
-        if not articles:
-            print("No more articles available in the database.")
-            break
-
-        for article in articles:
-            if len(valid_articles) >= LIMIT:
-                break
-
-            print(f"Scraping: {article['title']}")
-            result = scrape_article(article["title"], article["link"])
-            if result:  # Only proceed if scrape_article returns valid content
-                content, link = result
-                save_article(article["title"], content, link)
-                valid_articles.append(article)
-
-        offset += LIMIT 
+    print(f"Aggregated content written to {output_file}")
 
 
 if __name__ == "__main__":
 
+    # Define sources and their respective skip words
+    sources = {
+        "nbcnews": ["Video", "Watch"],
+        "cnbc": ["Video", "Watch"],
+        "abcnews": ["Video", "Watch"],
+        "cbsnews": ["Watch CBS", "Daily Report", "24/7", "CBS", "Here Comes the Sun"],
+        "politico": ["Video", "Watch", "cartoonists on the week in politics"],
+        "bbc": ["Video", "Watch"]
+    }
+
+    # hardcoded topics for testing
+    #topics = ["Trump", "Zelensky", "Ukraine", "Russia", "NATO"]
+    #topics = ["Giuffre", "Epstein", "Maxwell"]
+    # topics = ["explosion", "Iran", "port", "ship", "seaport"]
+
+    choice = 5
+    selected_topic = pick_topic(choice)
+    topics = [selected_topic]
+
+    cosine_similarity_threshold = 0.5
+
+    print(f"Selected Topic: {selected_topic}")
+
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    process_articles()
+
+    process_articles_for_sources(sources, topics, OUTPUT_DIR, threshold=cosine_similarity_threshold)

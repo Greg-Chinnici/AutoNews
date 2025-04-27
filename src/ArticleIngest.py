@@ -2,19 +2,23 @@ import requests
 import time
 import os
 from datetime import datetime
+import json
 
 import sqlite3
 import feedparser
 from colorama import Fore, Style
 import spacy
 import spacy.cli
+from sentence_transformers import SentenceTransformer
 
 
 spacy.cli.download("en_core_web_sm")
 # Load the spaCy English model
 nlp = spacy.load("en_core_web_sm")
 
-LIMIT_PER_FEED = 20
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+LIMIT_PER_FEED = 30
 source = ""
 
 '''
@@ -34,7 +38,8 @@ def create_db():
                 title TEXT NOT NULL,
                 link TEXT NOT NULL,
                 published_at TEXT,
-                topics TEXT
+                topics TEXT,
+                embedding TEXT  -- store as JSON string
             )
         ''')
 
@@ -57,7 +62,7 @@ def delete_db():
 
 
 # Extracts main topics, grouping proper nouns into named entities using spaCy, and formats them.
-def extract_topics(title, max_topics=5):
+def extract_topics(title, max_topics=10):
     try:
         doc = nlp(title)
         topics = []
@@ -92,11 +97,14 @@ def insert_article(title, link, time):
 
     formatted_time = convert_time(time)
     topics = extract_topics(title)
+    embedding = model.encode(title).tolist()
+
+
 
     cursor.execute('''
-        INSERT INTO articles (title, link, published_at, topics)
-        VALUES (?, ?, ?, ?)
-    ''', (title, link, formatted_time, topics))
+        INSERT INTO articles (title, link, published_at, topics, embedding)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (title, link, formatted_time, topics, json.dumps(embedding)))
 
     conn.commit()
     conn.close()
@@ -116,7 +124,9 @@ def main():
     delete_db()
     create_db()
 
-    with open('assets/rssfeeds.txt', 'r') as file:
+    skip_words = ["Video", "Watch", "Daily Report", "24/7", "CBS", "Here Comes the Sun", "Live", "cartoonists on the week in politics"]
+
+    with open('config/rssfeeds.txt', 'r') as file:
         print(Fore.YELLOW + f"Starting to parse RSS feeds at {time.strftime('%Y-%m-%d %H:%M:%S' , time.localtime())}")
         feeds = file.readlines()
         for feed_link in feeds:
@@ -149,6 +159,11 @@ def main():
                     print(Fore.GREEN   + f"{entry.title}")
                     print(Fore.GREEN   + f"{entry.link}")
                     print(Fore.MAGENTA + f"{entry.published}")
+
+                    # Check for skip words
+                    if any(word.lower() in entry.title.lower() for word in skip_words):
+                        print(Fore.RED + f"Skipping article due to skip word match: {entry.title}")
+                        continue
 
                     # if it gets to this point there is enough info to put it into a database
                     insert_article(entry.title, entry.link, entry.published)
