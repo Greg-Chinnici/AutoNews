@@ -99,7 +99,6 @@ def process_articles_for_sources(sources, topics, output_dir, min_matches):
     for source, skip_words in sources.items():
         print(f"Processing articles for source: {source}")
 
-        # Fetch the top article for the current source
         article = fetch_top_article_by_topics(source_filter=source, topics=topics, min_matches=min_matches)
         if not article:
             print(f"No articles found for source: {source}")
@@ -130,8 +129,8 @@ if __name__ == "__main__":
     }
 
     # hardcoded topics for testing
-    #topics = ["Trump", "Zelensky", "Ukraine", "Russia", "NATO"]
-    topics = ["Giuffre", "Epstein", "Maxwell"]
+    topics = ["Trump", "Zelensky", "Ukraine", "Russia", "NATO"]
+    #topics = ["Giuffre", "Epstein", "Maxwell"]
 
     if os.path.exists(OUTPUT_DIR):
         shutil.rmtree(OUTPUT_DIR)

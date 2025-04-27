@@ -8,7 +8,7 @@ import unicodedata
 import argparse
 import yaml
 from typing import List
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from langchain_community.chat_models import ChatOllama
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
@@ -16,7 +16,7 @@ from langchain.output_parsers import OutputFixingParser
 from langchain_core.exceptions import OutputParserException
 
 
-# Define the expected structure of the news script
+# Define the expected Pydantic structure of the news script
 class DialogueLine(BaseModel):
     character: str
     line: str
@@ -30,8 +30,34 @@ class DialogueLine(BaseModel):
 
 class NewsScript(BaseModel):
     mainTitle: str = Field(description="Summarized title of the article")
-    characters: List[str] = Field(description="List of characters in the script, should ony be Emily and David")
-    dialogue: List[DialogueLine] = Field(description="List of dialogue lines")
+    characters: List[str] = Field(description="List containing only ['Emily', 'David']")
+    dialogue: List[DialogueLine] = Field(
+        description="List of dialogue entries. Each entry is a dictionary with a 'character' (Emily or David) and a 'line' (their dialogue)."
+    )
+
+    @field_validator('characters')
+    @classmethod
+    def validate_characters(cls, v):
+        allowed_characters = {"Emily", "David"}
+        if not all(c in allowed_characters for c in v):
+            raise ValueError("Characters must only include 'Emily' and 'David'")
+        return v
+
+    @model_validator(mode="after")
+    def validate_dialogue_counts(self):
+        """Check that each character has at least 15 lines."""
+        counts = {"Emily": 0, "David": 0}
+        for entry in self.dialogue:
+            if entry.character in counts:
+                counts[entry.character] += 1
+
+        if counts["Emily"] < 15 or counts["David"] < 15:
+            raise ValueError(
+                f"Each character must have at least 15 lines. Current counts: Emily={counts['Emily']}, David={counts['David']}"
+            )
+
+        return self
+    
 
 class ScriptCreator:
     def __init__(self, config_filename="config.yaml", verbose=False):
@@ -49,54 +75,63 @@ class ScriptCreator:
         self.fixing_parser = OutputFixingParser.from_llm(parser=self.parser, llm=self.model)
         self.prompt = PromptTemplate(
             template = """
-                You are a news show scriptwriter. Given the following news article, generate a JSON structured news segment with a casual, professional tone.
+            You are a strict JSON API, and are tasked with creating a script for a news show based on the provided article;
+            there are two characters in the script: Emily and David, and they will alternate speaking lines.
 
-                {format_instructions}
+            You will ONLY generate a valid JSON object, exactly matching the following schema, based on the input article.
 
-                IMPORTANT:
+            ARTICLE:
+            {article}
 
-                - You must output valid JSON matching exactly the format below.
-                - Do not invent or add any extra fields.
-                - Do not change the field names.
+            Each character must alternate naturally and summarize the key points conversationally, without inventing details.
 
-                {{
-                    "mainTitle": "TITLE OF ARTICLE",
-                    "characters": [
-                        "Emily",
-                        "David"
-                    ],
-                    "dialogue": [
-                        {{
-                            "character": "Emily",
-                            "line": "CONVERSATION LINE 1"
-                        }},
-                        {{
-                            "character": "David",
-                            "line": "CONVERSATION LINE 2"
-                        }}
-                    ]
-                }}
+            IMPORTANT:
 
-                Each character should alternate naturally. Focus on summarizing the key points conversationally without making things up.
+            - Each dialogue entry MUST be an object with exactly two fields:
+                - "character": either "Emily" or "David"
+                - "line": the text they say
+            - Do NOT use "speaker", "text", "name", or "lines" fields.
+            - Do NOT group multiple lines under a character.
+            - Only use the field names "character" and "line" exactly.
+            - Each character must have at least {num_lines} lines.
 
-                Ensure that each character has at least {num_lines} lines of dialogue.
+            JSON structure:
 
-                The segment should feature two newscasters:
-                - Emily: a seasoned anchor with a calm and authoritative presence.
-                - David: a younger co-anchor who brings energy and curiosity.
-
-                The dialogue should alternate between Emily and David, capturing their distinct personas.
-
-                Focus on the actual content of the article, ensuring that the dialogue is engaging and informative. 
-
-                The script should be structured as a conversation between the two characters, summarizing the key points of the article.
-
-                ARTICLE:
-                {article}
-                """,
+            {{
+                "mainTitle": "TITLE OF ARTICLE",
+                "characters": ["Emily", "David"],
+                "dialogue": [
+                    {{
+                        "character": "Emily",
+                        "line": "First line"
+                    }},
+                    {{
+                        "character": "David",
+                        "line": "Second line"
+                    }},
+                    {{
+                        "character": "Emily",
+                        "line": "Third line"
+                    }},
+                    {{
+                        "character": "David",
+                        "line": "Fourth line"
+                    }},
+                    {{
+                        "character": "Emily",
+                        "line": "Fifth line"
+                    }},
+                    {{
+                        "character": "David",
+                        "line": "Sixth line"
+                    }}
+                ]
+            }}
+            """,
             input_variables=["article"],
-            partial_variables={"format_instructions": self.parser.get_format_instructions(), "num_lines": num_lines},
-        )
+            partial_variables={"format_instructions": self.parser.get_format_instructions(), "num_lines": num_lines}
+            #partial_variables={"num_lines": num_lines}
+    )
 
     def _load_config(self, config_filename):
         config_path = os.path.join(os.getcwd(), "config", config_filename)
@@ -138,15 +173,15 @@ class ScriptCreator:
             line for line in script_data.dialogue if line.character in allowed_characters
         ]
         return script_data
-
     
+
     def generate_script(self, article_text):
         formatted_prompt = self.prompt.format(article=article_text)
         response_stream = self.model.stream(formatted_prompt)
         script_output = ""
 
         for chunk in response_stream:
-            print(chunk.content, end="", flush=True)
+            print(chunk.content, end="", flush=True) 
             script_output += chunk.content
 
         try:
@@ -156,13 +191,16 @@ class ScriptCreator:
                 print("Parsing returned None. Skipping this article.")
                 return None
             
-            # Validate output structure
+            # Validate and correct structure
             required_keys = {"mainTitle", "characters", "dialogue"}
-            if not required_keys.issubset(parsed_output.keys()):
-                print(f"Invalid output structure: missing keys {required_keys - parsed_output.keys()}")
-                return None
-            
-            # Normalize important fields
+            missing_keys = required_keys - parsed_output.keys()
+
+            if missing_keys:
+                print(f"Invalid output structure: missing keys {missing_keys}")
+                if "characters" in missing_keys:
+                    parsed_output["characters"] = ["Emily", "David"]
+                    print("Auto-filled missing 'characters' field.")
+
             if "mainTitle" in parsed_output:
                 parsed_output["mainTitle"] = unicodedata.normalize("NFKD", parsed_output["mainTitle"]).encode("ascii", "ignore").decode("ascii")
 
@@ -188,16 +226,21 @@ class ScriptCreator:
             # Determine if script_data is a Pydantic model or a dictionary
             data_dict = script_data.dict() if hasattr(script_data, 'dict') else script_data
 
-            # Pretty-print the JSON to the terminal
-            print("\nGenerated Script:")
-            print(json.dumps(data_dict, indent=4))
+            # Force the correct key order: mainTitle -> characters -> dialogue
+            ordered_data = {
+                "mainTitle": data_dict.get("mainTitle", ""),
+                "characters": data_dict.get("characters", ["Emily", "David"]),
+                "dialogue": data_dict.get("dialogue", [])
+            }
 
-            # Write the JSON to a file
             with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(data_dict, f, indent=4)
+                json.dump(ordered_data, f, indent=4)
+
             print(f"Saved script to {output_path}")
+
         except Exception as e:
             print(f"Error saving JSON for {output_path}: {e}")
+
 
     def process_articles(self, input_folder='scraped_articles', output_folder='generated_scripts'):
         if not self.is_ollama_running():
@@ -212,9 +255,6 @@ class ScriptCreator:
 
                 print(f"Processing {filename}...")
                 script_data = self.generate_script(article_text)
-                # if script_data:
-                #     script_data = filter_dialogue(script_data)
-                #     self.save_script(script_data, output_path)
 
                 output_filename = filename.replace('.txt', '.json')
                 output_path = os.path.join(output_folder, output_filename)
