@@ -63,7 +63,7 @@ class ScriptCreator:
     def __init__(self, config_filename="config.yaml", verbose=False):
         self.verbose = verbose
         self.config = self._load_config(config_filename)
-        num_lines=self.config.get("num_lines", 17),
+        num_lines=self.config.get("num_lines", 15),
         self.model = ChatOllama(
             model=self.config["deepseek"]["model_name"],
             temperature=self.config["deepseek"].get("temperature", 0.7),
@@ -269,8 +269,8 @@ OUTPUT_DIR = os.path.join("generated_scripts")
 
 if __name__ == "__main__":
     args = parse_arguments()
-    if os.path.exists(OUTPUT_DIR):
-        shutil.rmtree(OUTPUT_DIR)
+    # if os.path.exists(OUTPUT_DIR):
+    #     shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     creator = ScriptCreator(config_filename="script_creator.yaml", verbose=args.verbose)
     creator.process_articles()

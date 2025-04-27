@@ -3,6 +3,7 @@ import time
 import os
 from datetime import datetime
 import json
+import re
 
 import sqlite3
 import feedparser
@@ -10,6 +11,8 @@ from colorama import Fore, Style
 import spacy
 import spacy.cli
 from sentence_transformers import SentenceTransformer
+
+from bs4 import BeautifulSoup
 
 
 spacy.cli.download("en_core_web_sm")
@@ -118,6 +121,28 @@ def convert_time(raw_time_str):
     except ValueError as e:
         print(f"Time conversion error: {e}")
         return None
+    
+
+def resolve_final_url(google_news_url):
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(google_news_url, headers=headers, timeout=5)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        # Find the meta refresh tag
+        meta = soup.find("meta", attrs={"http-equiv": "refresh"})
+        if meta:
+            content = meta["content"]
+            # Content looks like "0;URL=https://www.reuters.com/article/...."
+            real_url = content.split("URL=")[-1]
+            return real_url
+        else:
+            return google_news_url
+    except Exception as e:
+        print(f"Error resolving final URL from {google_news_url}: {e}")
+        return google_news_url
+
 
 def main():
 
@@ -157,7 +182,8 @@ def main():
                 print(Fore.BLUE + f"[{source}:{index + 1}/{total_articles}]")
                 try:
                     print(Fore.GREEN   + f"{entry.title}")
-                    print(Fore.GREEN   + f"{entry.link}")
+                    real_link = resolve_final_url(entry.link)
+                    print(Fore.GREEN   + f"{real_link}")
                     print(Fore.MAGENTA + f"{entry.published}")
 
                     # Check for skip words
@@ -165,11 +191,17 @@ def main():
                         print(Fore.RED + f"Skipping article due to skip word match: {entry.title}")
                         continue
 
+                    if any(keyword in entry.link.lower() for keyword in ["video", "play", "watch", "livestream", "meet-the-press"]):
+                        print(Fore.RED + f"Skipping article due to video link: {entry.link}")
+                        continue
+
                     # if it gets to this point there is enough info to put it into a database
-                    insert_article(entry.title, entry.link, entry.published)
+                    insert_article(entry.title, real_link, entry.published)
 
                 except AttributeError:
                     print(Fore.RED + "Error: Missing attribute in entry.")
+
+            print(Style.RESET_ALL)
 
 
 main()

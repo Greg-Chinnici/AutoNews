@@ -30,7 +30,7 @@ def createClusters():
     embeddings = np.array(embeddings)
     embeddings = normalize(embeddings)
 
-    oversample_clusters = 12
+    oversample_clusters = 20
     kmeans = KMeans(n_clusters=oversample_clusters, random_state=42)
     kmeans.fit(embeddings)
 
@@ -43,7 +43,7 @@ def createClusters():
 
     sorted_clusters = sorted(cluster_density.items(), key=lambda x: x[1], reverse=True)
 
-    selected_cluster_ids = [cluster_id for cluster_id, count in sorted_clusters[:5]] # for 5 topics
+    selected_cluster_ids = [cluster_id for cluster_id, count in sorted_clusters[:10]] # for 5 topics
 
     selected_topics = []
 
@@ -57,7 +57,7 @@ def createClusters():
         
         selected_topics.append(titles[best_idx])
 
-    print("Top 5 Topics for Voting:")
+    print("Top 15 Topics for Voting:")
     for idx, topic in enumerate(selected_topics, start=1):
         print(f"{idx}. {topic}")
     print()
