@@ -13,7 +13,7 @@ import pickle
 import os
 
 
-def createClusters():
+def createClusters(num_topics):
     conn = sqlite3.connect('database/autonews.db')
     cursor = conn.cursor()
 
@@ -30,7 +30,7 @@ def createClusters():
     embeddings = np.array(embeddings)
     embeddings = normalize(embeddings)
 
-    oversample_clusters = 20
+    oversample_clusters = num_topics * 3
     kmeans = KMeans(n_clusters=oversample_clusters, random_state=42)
     kmeans.fit(embeddings)
 
@@ -43,7 +43,7 @@ def createClusters():
 
     sorted_clusters = sorted(cluster_density.items(), key=lambda x: x[1], reverse=True)
 
-    selected_cluster_ids = [cluster_id for cluster_id, count in sorted_clusters[:10]] # for 5 topics
+    selected_cluster_ids = [cluster_id for cluster_id, count in sorted_clusters[:num_topics]] # for n topics
 
     selected_topics = []
 
@@ -57,7 +57,7 @@ def createClusters():
         
         selected_topics.append(titles[best_idx])
 
-    print("Top 15 Topics for Voting:")
+    print(f"Top {num_topics} Topics for Voting:")
     for idx, topic in enumerate(selected_topics, start=1):
         print(f"{idx}. {topic}")
     print()
@@ -98,7 +98,7 @@ def authenticate():
 
 def main():
 
-    selected_topics = createClusters()
+    selected_topics = createClusters(num_topics=3)
 
     FORM_ID = '1FAIpQLSeqjQjpTtSPAQrdndN4qKfnz6bkgurGfYtLcN4WyiT3No_1HA'
     QUESTION_ID = 'your-question-id-here'

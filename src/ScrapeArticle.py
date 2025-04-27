@@ -113,6 +113,7 @@ def process_articles_for_sources(sources, topics, output_dir, threshold=0.5):
         file.write('\n\n'.join(aggregated_content))
 
     print(f"Aggregated content written to {output_file}")
+    print("\n")
 
 
 if __name__ == "__main__":

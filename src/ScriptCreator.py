@@ -269,8 +269,8 @@ OUTPUT_DIR = os.path.join("generated_scripts")
 
 if __name__ == "__main__":
     args = parse_arguments()
-    # if os.path.exists(OUTPUT_DIR):
-    #     shutil.rmtree(OUTPUT_DIR)
+    if os.path.exists(OUTPUT_DIR):
+        shutil.rmtree(OUTPUT_DIR)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     creator = ScriptCreator(config_filename="script_creator.yaml", verbose=args.verbose)
     creator.process_articles()
