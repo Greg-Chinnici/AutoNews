@@ -30,7 +30,7 @@ def createClusters(num_topics):
     embeddings = np.array(embeddings)
     embeddings = normalize(embeddings)
 
-    oversample_clusters = num_topics * 3
+    oversample_clusters = int(num_topics * 2.5)
     kmeans = KMeans(n_clusters=oversample_clusters, random_state=42)
     kmeans.fit(embeddings)
 

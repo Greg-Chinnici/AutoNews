@@ -1,5 +1,6 @@
 import os
 import shutil
+import re
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
@@ -20,6 +21,13 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 
 DATABASE_PATH = "database/autonews.db"
 OUTPUT_DIR = "scraped_articles"
+
+
+
+def sanitize_filename(name):
+    name = re.sub(r'[\\/*?:"<>|]', "", name) 
+    name = name.replace(" ", "_")
+    return name
 
 
 def fetch_top_article_by_embeddings(source_filter, selected_topic, threshold=0.5):
@@ -90,6 +98,7 @@ def process_articles_for_sources(sources, topics, output_dir, threshold=0.5):
     """Processes one article per source based on topic matches and aggregates them into a single file."""
     # Generate the output file name based on topics
     file_name = "_".join(topics) + ".txt"
+    file_name = sanitize_filename(file_name)
     output_file = os.path.join(output_dir, file_name)
 
     aggregated_content = []
