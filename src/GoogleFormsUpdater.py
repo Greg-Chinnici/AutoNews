@@ -43,7 +43,7 @@ def createClusters(num_topics):
 
     sorted_clusters = sorted(cluster_density.items(), key=lambda x: x[1], reverse=True)
 
-    selected_cluster_ids = [cluster_id for cluster_id, count in sorted_clusters[:num_topics]] # for n topics
+    selected_cluster_ids = [cluster_id for cluster_id, count in sorted_clusters[:num_topics]] # for num_topics topics
 
     selected_topics = []
 

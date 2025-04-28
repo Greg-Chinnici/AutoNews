@@ -6,8 +6,8 @@ import os
 import glob
 import time
 
-OUTPUT_FOLDER = "entire-broadcast"
 
+OUTPUT_FOLDER = "entire-broadcast"
 
 GOOGLE_CHIRP_HD_VOICES = {
     "charon_m": "en-US-Chirp3-HD-Charon",
@@ -16,7 +16,6 @@ GOOGLE_CHIRP_HD_VOICES = {
     "leda_w": "en-US-Chirp3-HD-Leda",
     "lao_w": "en-US-Chirp3-HD-Laomedeia",
 }
-
 
 """json defined as 
 {

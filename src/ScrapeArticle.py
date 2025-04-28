@@ -10,7 +10,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 import json
 
-from PickTopic import pick_topic 
 from GoogleFormsUpdater import createClusters
 
 
@@ -117,7 +116,6 @@ def process_articles_for_sources(sources, topics, output_dir, threshold=0.5):
 
 
 if __name__ == "__main__":
-
     # Define sources and their respective skip words
     sources = {
         "apnews": ["Video", "Watch"],
@@ -128,10 +126,9 @@ if __name__ == "__main__":
         "abcnews": ["Video", "Watch"],
         "cbsnews": ["Watch CBS", "Daily Report", "24/7", "CBS", "Here Comes the Sun"],
         "bbc": ["Video", "Watch"],
-
     }
 
-    topics = createClusters()
+    topics = createClusters(5)
 
     cosine_similarity_threshold = 0.5
 

@@ -22,5 +22,4 @@ langchain-community
 pydantic
 
 # audio generation
-google.cloud.texttospeech
 google-cloud-texttospeech
