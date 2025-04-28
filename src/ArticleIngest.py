@@ -15,8 +15,8 @@ from sentence_transformers import SentenceTransformer
 from bs4 import BeautifulSoup
 
 
-spacy.cli.download("en_core_web_sm")
 # Load the spaCy English model
+spacy.cli.download("en_core_web_sm")
 nlp = spacy.load("en_core_web_sm")
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -31,7 +31,9 @@ links, published_parsed, id, guidislink, title, title_detail, link, published
 
 
 def create_db():
+    conn = None
     try:
+        os.makedirs('database', exist_ok=True)
         conn = sqlite3.connect('database/autonews.db')
         cursor = conn.cursor()
 
@@ -42,7 +44,7 @@ def create_db():
                 link TEXT NOT NULL,
                 published_at TEXT,
                 topics TEXT,
-                embedding TEXT  -- store as JSON string
+                embedding TEXT
             )
         ''')
 
@@ -56,12 +58,16 @@ def create_db():
 
 
 def delete_db():
-    db_path = 'database/autonews.db'
-    if os.path.exists(db_path):
-        os.remove(db_path)
-        print("Database deleted successfully.")
+    db_dir = 'database'
+    db_path = os.path.join(db_dir, 'autonews.db')
+    if os.path.exists(db_dir):
+        if os.path.exists(db_path):
+            os.remove(db_path)
+            print("Database deleted successfully.")
+        else:
+            print("No database found to delete.")
     else:
-        print("No database found to delete.")
+        print("Database folder does not exist.")
 
 
 # Extracts main topics, grouping proper nouns into named entities using spaCy, and formats them.
@@ -101,8 +107,6 @@ def insert_article(title, link, time):
     formatted_time = convert_time(time)
     topics = extract_topics(title)
     embedding = model.encode(title).tolist()
-
-
 
     cursor.execute('''
         INSERT INTO articles (title, link, published_at, topics, embedding)
@@ -146,7 +150,7 @@ def resolve_final_url(google_news_url):
 
 def main():
 
-    delete_db()
+    #delete_db()
     create_db()
 
     skip_words = ["Video", "Watch", "Daily Report", "24/7", "CBS", "Here Comes the Sun", "Live", "cartoonists on the week in politics"]
