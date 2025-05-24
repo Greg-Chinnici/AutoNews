@@ -1,0 +1,3 @@
+https://www.cbssports.com/rss/headlines
+http://feeds.bbci.co.uk/sport/rss.xml
+https://www.espn.com/espn/rss/news

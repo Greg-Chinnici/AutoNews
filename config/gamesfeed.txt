@@ -1,0 +1,3 @@
+https://feeds.feedburner.com/ign/games-all
+https://www.gameinformer.com/news.xml
+https://www.rockpapershotgun.com/feed/features
